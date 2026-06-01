@@ -1,0 +1,114 @@
+{
+  "version": "1.0.0",
+  "widgets": [
+    {
+      "uri": "/terraform-pr",
+      "name": "Terraform Pull Request Governance",
+      "description": "Interactive Pull Request widget showcasing CloudOps OS multi-agent security, costing, and validation analysis.",
+      "examples": [
+        {
+          "name": "Standard Analysis Example",
+          "description": "Analysis of a standard HCL file with SSH open security group and NAT Gateway",
+          "data": {
+            "status": "pending_approval",
+            "originalCode": "resource \"aws_security_group\" \"web_sg\" {\n  name        = \"web-server-sg\"\n  ingress {\n    from_port   = 22\n    to_port     = 22\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }\n}\n\nresource \"aws_instance\" \"web_app\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"m5.large\"\n}\n\nresource \"aws_nat_gateway\" \"nat\" {\n  allocation_id = \"eipalloc-12345\"\n  subnet_id     = \"subnet-6789a\"\n}",
+            "modifiedCode": "resource \"aws_security_group\" \"web_sg\" {\n  name        = \"web-server-sg\"\n  ingress {\n    from_port   = 22\n    to_port     = 22\n    protocol    = \"tcp\"\n    cidr_blocks = [\"10.0.0.0/8\"]\n  }\n  tags = {\n    Environment = \"Production\"\n    Compliance  = \"SOC2-PCI\"\n    Owner       = \"SecOps\"\n  }\n}\n\nresource \"aws_instance\" \"web_app\" {\n  ami           = \"ami-0c55b159cbfafe1f0\"\n  instance_type = \"t3.medium\"\n  tags = {\n    Environment = \"Production\"\n    Compliance  = \"SOC2-PCI\"\n    Owner       = \"SecOps\"\n  }\n}\n\n# Replaced by Resource & Route Agent with PrivateLink Endpoint\n# resource \"aws_nat_gateway\" \"nat\" {\n#   allocation_id = \"eipalloc-12345\"\n#   subnet_id     = \"subnet-6789a\"\n# }\n\nresource \"aws_vpc_endpoint\" \"s3\" {\n  vpc_id       = aws_vpc.main.id\n  service_name = \"com.amazonaws.us-east-1.s3\"\n  route_table_ids = [aws_route_table.private.id]\n  tags = {\n    Environment = \"Production\"\n    Compliance  = \"SOC2-PCI\"\n    Owner       = \"SecOps\"\n  }\n}",
+            "diagnostics": [
+              {
+                "id": "SEC-001",
+                "agent": "DevSecOps",
+                "severity": "CRITICAL",
+                "file": "main.tf",
+                "lineStart": 3,
+                "lineEnd": 9,
+                "flawedSnippet": "cidr_blocks = [\"0.0.0.0/0\"]",
+                "fixedSnippet": "cidr_blocks = [\"10.0.0.0/8\"]",
+                "diagnosis": "Exposed Administrative Port (SSH/22) to the open internet.",
+                "explanation": "Exposing administrative ports to the public internet makes cloud instances vulnerable to brute-force attacks and automated scanning scripts. Corporate policy requires administrative access to be routed through a bastion host, client VPN, or restricted IP range.",
+                "remediation": "Restricted public SSH access to the corporate intranet range (10.0.0.0/8)."
+              },
+              {
+                "id": "POL-002",
+                "agent": "DevSecOps",
+                "severity": "WARNING",
+                "file": "main.tf",
+                "lineStart": 1,
+                "lineEnd": 20,
+                "flawedSnippet": "No tags defined",
+                "fixedSnippet": "tags = {\n    Environment = \"Production\"\n    Compliance  = \"SOC2-PCI\"\n    Owner       = \"SecOps\"\n  }",
+                "diagnosis": "Resources missing mandatory corporate metadata tags.",
+                "explanation": "Standard SOC2 and PCI-DSS compliance audits require clear ownership, purpose, and classification tagging on all cloud infrastructure resources. Automated resource lifecycle tracking also relies on these tags.",
+                "remediation": "Injected standardized organizational tags (Environment, Compliance, Owner) to resources."
+              },
+              {
+                "id": "OPT-001",
+                "agent": "ResourceRoute",
+                "severity": "INFO",
+                "file": "main.tf",
+                "lineStart": 18,
+                "lineEnd": 24,
+                "flawedSnippet": "instance_type = \"m5.large\"",
+                "fixedSnippet": "instance_type = \"t3.medium\"",
+                "diagnosis": "Over-provisioned VM instance size detected.",
+                "explanation": "Compute resource m5.large features 2 vCPUs and 8 GB of RAM. Historical metrics for standard development workloads indicate CPU utilization remains below 10%. Transitioning to a burstable general-purpose instance size (t3.medium, 2 vCPUs, 4 GB RAM) maintains performance while cutting compute baseline costs by over 50%.",
+                "remediation": "Downgraded instance size from m5.large to right-sized t3.medium."
+              },
+              {
+                "id": "OPT-002",
+                "agent": "ResourceRoute",
+                "severity": "INFO",
+                "file": "main.tf",
+                "lineStart": 25,
+                "lineEnd": 32,
+                "flawedSnippet": "resource \"aws_nat_gateway\" \"nat\" { ... }",
+                "fixedSnippet": "resource \"aws_vpc_endpoint\" \"s3\" { ... }",
+                "diagnosis": "Expensive NAT Gateway used for basic AWS API routing.",
+                "explanation": "NAT Gateways incur a flat hourly rate ($0.045/hr) in addition to high data processing charges ($0.045 per GB). Routing traffic to core AWS services like S3 or DynamoDB through NAT is highly inefficient. Utilizing a VPC Endpoint (PrivateLink/Gateway Endpoint) keeps traffic entirely within the AWS internal network, which eliminates data processing fees and flat routing rates.",
+                "remediation": "Replaced NAT Gateway resource with an internal VPC Gateway Endpoint for AWS S3 and updated route tables."
+              },
+              {
+                "id": "FIN-001",
+                "agent": "FinOps",
+                "severity": "INFO",
+                "file": "main.tf",
+                "lineStart": 1,
+                "lineEnd": 40,
+                "flawedSnippet": "N/A",
+                "fixedSnippet": "N/A",
+                "diagnosis": "FinOps Sizing and Routing Cost Audit Complete.",
+                "explanation": "Proposed optimizations will reduce infrastructure expenses from $147.48/mo to $30.36/mo. This represents a monthly saving of $117.12 and an annualized recovery of $1,405.44 (Savings rate of 79.4%).",
+                "remediation": "Implemented burstable CPU tiers and local VPC Gateway endpoints, preventing public transit routing charges."
+              }
+            ],
+            "costSummary": {
+              "originalCost": 147.48,
+              "optimizedCost": 30.36,
+              "monthlySavings": 117.12,
+              "annualSavings": 1405.44,
+              "items": [
+                {
+                  "resource": "aws_instance (m5.large -> t3.medium)",
+                  "originalCost": 70.08,
+                  "optimizedCost": 30.36,
+                  "savings": 39.72,
+                  "details": "Burstable compute savings. Reallocated resource size."
+                },
+                {
+                  "resource": "aws_nat_gateway -> VPC Gateway Endpoint (S3)",
+                  "originalCost": 77.40,
+                  "optimizedCost": 0,
+                  "savings": 77.40,
+                  "details": "Eliminated $32.40/mo hourly base fee + $45.00/mo data processing charges."
+                }
+              ]
+            },
+            "planSummary": "Simulated plan summary output...",
+            "logs": []
+          }
+        }
+      ],
+      "tags": ["terraform", "iac", "devsecops", "finops", "release"]
+    }
+  ],
+  "generatedAt": "2026-07-25T18:00:00.000Z"
+}
