@@ -104,8 +104,11 @@ export class StructuredLoggerService {
       };
     }
 
-    // In production, this would be sent to a logging backend
-    // For now, we'll just return the structured log
+    // Emit to stdout as newline-delimited JSON for log aggregators
+    const consoleFn =
+      level === 'ERROR' || level === 'CRITICAL' ? console.error : console.log;
+    consoleFn(JSON.stringify(log));
+
     return log;
   }
 
