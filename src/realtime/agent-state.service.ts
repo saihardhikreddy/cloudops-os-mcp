@@ -140,10 +140,14 @@ export class AgentStateService {
       const total = metrics.totalProcessed + metrics.totalFailed;
       state.errorRate = total > 0 ? metrics.totalFailed / total : 0;
 
-      // Trigger degradation if error rate exceeds 20%
-      if (state.errorRate > 0.2) {
+      // Trigger degradation if error rate exceeds 10% (lowered from 20%)
+      if (state.errorRate > 0.1 && state.state !== 'degraded') {
         state.state = 'degraded';
         state.degradationReason = `High error rate: ${(state.errorRate * 100).toFixed(1)}%`;
+      } else if (state.errorRate <= 0.05 && state.state === 'degraded') {
+        // Auto-recover: error rate has dropped below 5% threshold
+        state.state = state.queueDepth > 0 ? 'queued' : 'idle';
+        state.degradationReason = undefined;
       }
 
       state.lastHeartbeat = Date.now();
