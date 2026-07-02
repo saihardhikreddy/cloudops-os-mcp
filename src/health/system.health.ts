@@ -22,23 +22,27 @@ export class SystemHealthCheck implements HealthCheckInterface {
       const memoryUsage = process.memoryUsage();
       const uptime = Date.now() - this.startTime;
       const uptimeSeconds = Math.floor(uptime / 1000);
-      
+
       // Convert memory to MB
-      const memoryUsedMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
-      const memoryTotalMB = Math.round(memoryUsage.heapTotal / 1024 / 1024);
-      
-      // Consider unhealthy if memory usage is > 90%
-      const memoryPercent = (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100;
-      const isHealthy = memoryPercent < 90;
-      
+      const heapUsedMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
+      const heapTotalMB = Math.round(memoryUsage.heapTotal / 1024 / 1024);
+      const rssMB = Math.round(memoryUsage.rss / 1024 / 1024);
+      const externalMB = Math.round(memoryUsage.external / 1024 / 1024);
+
+      // Consider unhealthy if heap usage exceeds 90%
+      const heapPercent = (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100;
+      const isHealthy = heapPercent < 90;
+
       return {
         status: isHealthy ? 'up' : 'degraded',
-        message: isHealthy 
-          ? 'System is healthy' 
-          : 'High memory usage detected',
+        message: isHealthy
+          ? 'System is healthy'
+          : `High heap usage: ${Math.round(heapPercent)}%`,
         details: {
           uptime: `${uptimeSeconds}s`,
-          memory: `${memoryUsedMB}MB / ${memoryTotalMB}MB (${Math.round(memoryPercent)}%)`,
+          heap: `${heapUsedMB}MB / ${heapTotalMB}MB (${Math.round(heapPercent)}%)`,
+          rss: `${rssMB}MB`,
+          external: `${externalMB}MB`,
           pid: process.pid,
           nodeVersion: process.version,
         },
