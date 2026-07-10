@@ -56,3 +56,11 @@ uploads/
 *.key
 tokens.json
 .nitrostudio/
+
+# Docker
+.docker/
+docker-data/
+
+# Test reports
+test-results/
+junit.xml
