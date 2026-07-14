@@ -86,6 +86,18 @@ export class EventLogServiceImpl implements EventLogService {
     return this.events.slice(-count);
   }
 
+  /**
+   * Returns internal stats useful for monitoring and debugging.
+   */
+  getStats(): { totalEvents: number; correlationIds: number; agents: number; maxEvents: number } {
+    return {
+      totalEvents: this.events.length,
+      correlationIds: this.indexByCorrelationId.size,
+      agents: this.indexByAgent.size,
+      maxEvents: this.maxEvents,
+    };
+  }
+
   private removeFromIndices(entry: EventLogEntry): void {
     if (entry.correlationId) {
       const list = this.indexByCorrelationId.get(entry.correlationId);

@@ -34,7 +34,16 @@ export class MessageBrokerService implements MessageBroker {
         try {
           handler(message);
         } catch (err) {
-          // Silently catch handler errors to prevent cascade failures
+          // Log but don't rethrow — one broken subscriber must not block others
+          console.error(
+            JSON.stringify({
+              level: 'ERROR',
+              timestamp: Date.now(),
+              message: 'MessageBroker: subscriber handler threw an error',
+              channel,
+              error: err instanceof Error ? err.message : String(err),
+            })
+          );
         }
       });
     }
