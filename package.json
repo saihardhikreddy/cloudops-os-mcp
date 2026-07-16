@@ -11,7 +11,13 @@
     "start:prod": "nitrostack-cli start",
     "upgrade": "nitrostack-cli upgrade",
     "install:all": "nitrostack-cli install",
-    "widget": "npm --prefix src/widgets"
+    "widget": "npm --prefix src/widgets",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "docker:build": "docker build -t cloudops-mcp:latest .",
+    "docker:run": "docker compose up --build",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "^16.3.1",
