@@ -12,9 +12,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Auto-recovery for degraded agents when error rate drops below 5%
 - RSS and external memory metrics in system health endpoint
+- `getStats()` method on `EventLogServiceImpl` for monitoring
+- Docker support: `Dockerfile`, `docker-compose.yml`, `.dockerignore`
+- GitHub Actions CI workflow (test on Node 20 + 22, type-check, build)
+- GitHub issue templates (bug report, feature request) and PR template
+- `CONTRIBUTING.md` with dev setup, commit conventions, and PR process
+- `CHANGELOG.md` (this file)
+- npm scripts: `test`, `test:coverage`, `test:watch`, `docker:build`, `docker:run`, `typecheck`
+
+### Fixed
+- Structured logger was building log objects but silently discarding them
+- Server entry point had stale "Calculator MCP Server" comment header
+- Message broker was silently swallowing subscriber handler errors
 
 ### Changed
-- Degradation threshold lowered from 20% → 10% error rate
+- Degradation threshold lowered from 20% → 10% error rate for earlier alerting
+- Graceful SIGTERM/SIGINT shutdown handlers added to server entry point
+- Health check now reports `heap`, `rss`, and `external` memory separately
 
 ---
 
