@@ -137,3 +137,15 @@ resource "aws_nat_gateway" "nat" {
 3. **Live Costing Ledgers**: Review compute and networking savings alongside the 20% storage cost reduction.
 4. **HITL Re-runs**: Type `use spot pricing` in the override box and click **Request Changes** to inject Spot market configurations live.
 5. **Approve & Commit**: Click **Approve & Save Changes** to merge, generate git commit references, and output simulated CLI deploy logs.
+
+---
+
+## 🧪 Testing & Quality Assurance
+
+Run unit and integration test suites:
+```bash
+npm test                # Run Jest test suite
+npm run test:coverage   # Generate test coverage reports
+npm run typecheck       # Verify TypeScript static types
+```
+
