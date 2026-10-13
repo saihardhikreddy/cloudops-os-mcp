@@ -3,7 +3,7 @@
 CloudOps OS is a fully autonomous multi-agent orchestration pipeline that shifts cloud governance and cost optimization entirely to the left. Deployed as Model Context Protocol (MCP) servers using NitroStack, the system ingests raw Terraform (.tf) files alongside natural language user intent, passing them through a strict four-stage reasoning engine.
 
 Each agent operates sequentially through a strict **Flag ➔ Explain ➔ Diagnose ➔ Resolve** cycle.
-
+THIS IS STILL ON A DEVELOPING STAGE
 ---
 
 ## 🚀 Key Features
