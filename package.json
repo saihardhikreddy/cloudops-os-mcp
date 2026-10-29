@@ -17,7 +17,8 @@
     "test:watch": "jest --watch",
     "docker:build": "docker build -t cloudops-mcp:latest .",
     "docker:run": "docker compose up --build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "^16.3.1",
