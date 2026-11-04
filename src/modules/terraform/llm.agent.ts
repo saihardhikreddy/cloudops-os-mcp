@@ -45,7 +45,7 @@ function httpsPostJson(urlStr: string, payload: any, headers: Record<string, str
   });
 }
 
-const SYSTEM_PROMPT = `You are the LLMReasoner agent inside CloudOps OS, a multi-agent Terraform \
+export const SYSTEM_PROMPT = `You are the LLMReasoner agent inside CloudOps OS, a multi-agent Terraform \
 governance pipeline. A deterministic rule engine and an OPA/.rego policy pass have already run \
 on this HCL. Your job is ONLY to find additional, genuinely non-obvious issues they would miss: \
 naming/readability smells, missing lifecycle{} or depends_on where implied, risky defaults, or \

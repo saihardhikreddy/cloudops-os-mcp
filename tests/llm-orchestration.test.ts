@@ -11,6 +11,7 @@
  */
 
 import type { Diagnostic, ReasoningLog } from '../src/modules/terraform/terraform.types.js';
+import { SYSTEM_PROMPT } from '../src/modules/terraform/llm.agent.js';
 
 describe('LLM Orchestration & Real-Time Streaming', () => {
   describe('LLM Provider Chain', () => {
@@ -211,7 +212,7 @@ describe('LLM Orchestration & Real-Time Streaming', () => {
         const ts = Date.now() + i;
         logs.push({
           timestamp: new Date(ts).toISOString(),
-          agent: 'TestAgent',
+          agent: 'LLMReasoner',
           message: `Log ${i}`
         });
         timestamps.push(ts);
@@ -388,24 +389,23 @@ describe('LLM Orchestration & Real-Time Streaming', () => {
   });
 
   describe('LLM System Prompt Compliance', () => {
+    // These check the prompt the agent actually sends, not a copy of it.
     test('should instruct LLM to avoid re-flagging deterministic issues', () => {
-      const systemPrompt = `Do NOT re-flag anything a simple regex on instance_type/volume_type/region/cidr_blocks/tags would already catch`;
-      expect(systemPrompt).toContain('Do NOT re-flag');
+      expect(SYSTEM_PROMPT).toContain('Do NOT re-flag');
     });
 
-    test('should instruct LLM to focus on structural smells', () => {
-      const systemPrompt = `Your job is ONLY to find additional, genuinely non-obvious issues they would miss: naming/readability smells, missing lifecycle{} or depends_on where implied`;
-      expect(systemPrompt).toContain('structural smells');
+    test('should instruct LLM to focus on non-obvious smells', () => {
+      expect(SYSTEM_PROMPT).toContain('genuinely non-obvious issues');
+      expect(SYSTEM_PROMPT).toContain('readability smells');
     });
 
     test('should instruct LLM to return JSON format', () => {
-      const systemPrompt = `Return ONLY a JSON object (no markdown fences) of the shape: { "diagnostics": [...] }`;
-      expect(systemPrompt).toContain('JSON object');
+      expect(SYSTEM_PROMPT).toContain('Return ONLY a JSON object');
+      expect(SYSTEM_PROMPT).toContain('"diagnostics"');
     });
 
     test('should instruct LLM to include confidence scores', () => {
-      const systemPrompt = `"confidence": 0.0-1.0`;
-      expect(systemPrompt).toContain('confidence');
+      expect(SYSTEM_PROMPT).toContain('"confidence": 0.0-1.0');
     });
   });
 
@@ -475,7 +475,7 @@ describe('LLM Orchestration & Real-Time Streaming', () => {
       for (let i = 0; i < 100; i++) {
         logs.push({
           timestamp: new Date().toISOString(),
-          agent: 'TestAgent',
+          agent: 'LLMReasoner',
           message: `Log ${i}`
         });
       }
@@ -490,7 +490,7 @@ describe('LLM Orchestration & Real-Time Streaming', () => {
       for (let i = 0; i < 1000; i++) {
         diagnostics.push({
           id: `DIAG-${i}`,
-          agent: 'TestAgent',
+          agent: 'LLMReasoner',
           severity: 'INFO',
           file: 'main.tf',
           lineStart: i,

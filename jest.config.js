@@ -15,7 +15,9 @@ export default {
         skipLibCheck: true,
         strict: true,
         resolveJsonModule: true,
-        allowSyntheticDefaultImports: true
+        allowSyntheticDefaultImports: true,
+        // tsconfig.json limits types to node for the build; tests also need jest's globals
+        types: ['node', 'jest']
       }
     }]
   },
