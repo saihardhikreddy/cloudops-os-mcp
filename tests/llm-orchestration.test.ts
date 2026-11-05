@@ -11,7 +11,7 @@
  */
 
 import type { Diagnostic, ReasoningLog } from '../src/modules/terraform/terraform.types.js';
-import { SYSTEM_PROMPT } from '../src/modules/terraform/llm.agent.js';
+import { SYSTEM_PROMPT, extractJsonObject, locateSnippet } from '../src/modules/terraform/llm.agent.js';
 
 describe('LLM Orchestration & Real-Time Streaming', () => {
   describe('LLM Provider Chain', () => {
@@ -506,6 +506,26 @@ describe('LLM Orchestration & Real-Time Streaming', () => {
       }
 
       expect(diagnostics.length).toBe(1000);
+    });
+  });
+
+  describe('Reply parsing helpers', () => {
+    test('extracts JSON from plain, fenced and chatty replies', () => {
+      const obj = { diagnostics: [{ id: 'LLM-001' }] };
+      const json = JSON.stringify(obj);
+      expect(extractJsonObject(json)).toEqual(obj);
+      expect(extractJsonObject('```json\n' + json + '\n```')).toEqual(obj);
+      expect(extractJsonObject('```\n' + json + '\n```')).toEqual(obj);
+      expect(extractJsonObject('Here is my review:\n' + json + '\nHope this helps!')).toEqual(obj);
+      expect(() => extractJsonObject('no findings')).toThrow('no JSON object');
+    });
+
+    test('locates flagged snippets in the HCL', () => {
+      const hcl = 'resource "aws_instance" "web" {\n  ami = "ami-123"\n  instance_type = "t3.micro"\n}\n';
+      expect(locateSnippet(hcl, 'instance_type = "t3.micro"')).toEqual({ lineStart: 3, lineEnd: 3 });
+      expect(locateSnippet(hcl, 'ami = "ami-123"\ninstance_type = "t3.micro"')).toEqual({ lineStart: 2, lineEnd: 3 });
+      expect(locateSnippet(hcl, 'not in the file')).toEqual({ lineStart: 1, lineEnd: 1 });
+      expect(locateSnippet(hcl, '')).toEqual({ lineStart: 1, lineEnd: 1 });
     });
   });
 });

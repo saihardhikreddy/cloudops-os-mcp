@@ -107,6 +107,36 @@ function resolveProvider(): ProviderConfig | null {
   return null;
 }
 
+/**
+ * The JSON object in a model reply. Models often wrap it in a ``` or ```json fence, or add a
+ * sentence before or after it, despite being told not to.
+ */
+export function extractJsonObject(text: string): any {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const body = (fenced ? fenced[1] : text).trim();
+  try {
+    return JSON.parse(body);
+  } catch {
+    const start = body.indexOf('{');
+    const end = body.lastIndexOf('}');
+    if (start === -1 || end <= start) throw new Error('reply contained no JSON object');
+    return JSON.parse(body.slice(start, end + 1));
+  }
+}
+
+/** 1-based first and last line of `snippet` in `hcl` (compared without indentation); 1-1 if absent. */
+export function locateSnippet(hcl: string, snippet: string): { lineStart: number; lineEnd: number } {
+  const want = snippet.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (!want.length) return { lineStart: 1, lineEnd: 1 };
+  const lines = hcl.split('\n').map((l) => l.trim());
+  for (let i = 0; i + want.length <= lines.length; i++) {
+    if (want.every((w, k) => lines[i + k].includes(w))) {
+      return { lineStart: i + 1, lineEnd: i + want.length };
+    }
+  }
+  return { lineStart: 1, lineEnd: 1 };
+}
+
 export async function runLLMReasoningAgent(
   hcl: string,
   userInstructions: string,
@@ -154,8 +184,7 @@ export async function runLLMReasoningAgent(
     const text = provider.extractText(body);
     if (!text) throw new Error(`${provider.name} response contained no message content`);
 
-    const cleaned = text.trim().replace(/^```json/i, '').replace(/```$/, '').trim();
-    const parsed = JSON.parse(cleaned);
+    const parsed = extractJsonObject(text);
     const rawDiags: any[] = Array.isArray(parsed?.diagnostics) ? parsed.diagnostics : [];
 
     const diagnostics: Diagnostic[] = rawDiags.map((d, idx) => ({
@@ -163,8 +192,7 @@ export async function runLLMReasoningAgent(
       agent: 'LLMReasoner',
       severity: ['CRITICAL', 'WARNING', 'INFO'].includes(d.severity) ? d.severity : 'INFO',
       file: 'main.tf',
-      lineStart: 1,
-      lineEnd: 1,
+      ...locateSnippet(hcl, String(d.flaggedSnippet || '')),
       flaggedSnippet: String(d.flaggedSnippet || ''),
       explanation: String(d.explanation || ''),
       diagnosis: String(d.diagnosis || 'LLM-flagged observation'),
