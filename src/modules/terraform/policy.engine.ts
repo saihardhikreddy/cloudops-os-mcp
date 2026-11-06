@@ -39,6 +39,23 @@ export interface ParsedResource {
 }
 
 /**
+ * Drop a trailing `#` or `//` comment from an attribute value, ignoring
+ * comment markers inside quoted strings (`"http://..."`, `"#tag"`).
+ */
+export function stripTrailingComment(value: string): string {
+  let inString = false;
+  for (let k = 0; k < value.length; k++) {
+    const ch = value[k];
+    if (ch === '\\' && inString) { k++; continue; }
+    if (ch === '"') inString = !inString;
+    else if (!inString && (ch === '#' || (ch === '/' && value[k + 1] === '/'))) {
+      return value.slice(0, k).trim();
+    }
+  }
+  return value.trim();
+}
+
+/**
  * Very small, dependency-free HCL resource-block extractor. It is not a
  * full HCL2 AST parser (that's flagged as future work in the build
  * strategy doc), but it reliably captures `resource "type" "name" { ... }`
@@ -71,7 +88,8 @@ export function extractResources(hcl: string): ParsedResource[] {
       let am: RegExpExecArray | null;
       while ((am = attrRegex.exec(body)) !== null) {
         const key = am[1];
-        let value = am[2].trim();
+        // `acl = "public-read" # TODO` must still read as public-read
+        let value = stripTrailingComment(am[2]);
         if (value.startsWith('"') && value.endsWith('"')) {
           value = value.slice(1, -1);
         }
