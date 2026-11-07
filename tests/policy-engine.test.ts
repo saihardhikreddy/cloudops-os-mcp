@@ -28,4 +28,12 @@ describe('HCL resource extraction', () => {
     const out = runRegoLite(extractResources(hcl), rego);
     expect(out.messages).toEqual(['S3 bucket is public (resource: aws_s3_bucket.logs)']);
   });
+
+  it('understands Rego v1 "deny contains msg if" rules', () => {
+    const hcl = 'resource "aws_s3_bucket" "logs" {\n  acl = "public-read"\n}\n';
+    const rego = 'package s3\nimport rego.v1\ndeny contains msg if {\n  input.resource.acl == "public-read"\n  msg := "S3 bucket is public"\n}\n';
+    const out = runRegoLite(extractResources(hcl), rego);
+    expect(out.rulesEvaluated).toBe(1);
+    expect(out.messages).toEqual(['S3 bucket is public (resource: aws_s3_bucket.logs)']);
+  });
 });

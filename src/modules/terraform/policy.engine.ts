@@ -158,7 +158,7 @@ async function runRealOpa(
 }
 
 /**
- * Rego-lite fallback: extracts `deny[msg] { ... }` rule bodies and
+ * Rego-lite fallback: extracts `deny[msg] { ... }` (or `deny contains msg if { ... }`) rule bodies and
  * evaluates a restricted grammar of conditions against extracted
  * resources: `input.resource.type == "x"`, `input.resource.<attr> == "y"`,
  * `input.resource.<attr> != "y"`, and `contains(input.resource.<attr>, "y")`.
@@ -166,7 +166,9 @@ async function runRealOpa(
  * silently assumed true), which keeps false positives out of the console.
  */
 export function runRegoLite(resources: ParsedResource[], regoSource: string): { messages: string[]; rulesEvaluated: number; rulesSkipped: number } {
-  const ruleRegex = /deny\s*\[\s*msg\s*\]\s*\{([^}]*)\}/g;
+  // Both rule spellings: `deny[msg] { ... }` and Rego v1's `deny contains msg if { ... }`
+  // (the default since OPA 1.0), which used to be ignored without a word.
+  const ruleRegex = /deny\s*(?:\[\s*msg\s*\]|\s+contains\s+msg(?:\s+if)?)\s*\{([^}]*)\}/g;
   const messages: string[] = [];
   let rulesEvaluated = 0;
   let rulesSkipped = 0;
