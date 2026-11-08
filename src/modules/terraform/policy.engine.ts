@@ -122,7 +122,13 @@ async function findOpaBinary(): Promise<string | null> {
   }
 }
 
-async function runRealOpa(
+/**
+ * Runs the real `opa` CLI once per resource. The policies (and the rego-lite fallback) are written
+ * for one resource at a time (`input.resource.type == ...`), so each run gets
+ * `{ resource: { type, name, ...attrs } }`. Passing every resource as one array made
+ * `input.resource.type` undefined, and real OPA then reported nothing at all.
+ */
+export async function runRealOpa(
   resources: ParsedResource[],
   regoSource: string,
   opaPath: string
@@ -130,30 +136,43 @@ async function runRealOpa(
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cloudops-opa-'));
   const policyPath = path.join(tmpDir, 'policy.rego');
   const inputPath = path.join(tmpDir, 'input.json');
+  const messages: string[] = [];
+  const raw: string[] = [];
   try {
     fs.writeFileSync(policyPath, regoSource, 'utf-8');
-    fs.writeFileSync(
-      inputPath,
-      JSON.stringify({ resource: resources.map(r => ({ type: r.type, name: r.name, ...r.attrs })) }, null, 2)
-    );
-    const { stdout } = await execFileAsync(opaPath, [
-      'eval',
-      '--format', 'json',
-      '--data', policyPath,
-      '--input', inputPath,
-      'data'
-    ]);
-    const parsed = JSON.parse(stdout);
-    const messages: string[] = [];
-    const results = parsed?.result?.[0]?.expressions?.[0]?.value ?? {};
-    for (const pkg of Object.values(results) as any[]) {
-      const denySet = pkg?.deny;
-      if (Array.isArray(denySet)) messages.push(...denySet);
-      else if (denySet && typeof denySet === 'object') messages.push(...Object.keys(denySet));
+    for (const r of resources) {
+      fs.writeFileSync(inputPath, JSON.stringify({ resource: { type: r.type, name: r.name, ...r.attrs } }, null, 2));
+      const { stdout } = await execFileAsync(opaPath, [
+        'eval',
+        '--format', 'json',
+        '--data', policyPath,
+        '--input', inputPath,
+        'data'
+      ]);
+      raw.push(stdout);
+      const parsed = JSON.parse(stdout);
+      const results = parsed?.result?.[0]?.expressions?.[0]?.value ?? {};
+      const found: string[] = [];
+      collectDenies(results, found);
+      // Name the resource, as rego-lite does, so one rule hitting two buckets isn't one message.
+      messages.push(...found.map(msg => `${msg} (resource: ${r.type}.${r.name})`));
     }
-    return { messages, raw: stdout };
+    return { messages, raw: raw.join('\n') };
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+/** `deny` sets anywhere under `data` (a package like cloudops.governance nests one level per dot). */
+function collectDenies(node: any, out: string[]): void {
+  if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+  for (const [key, value] of Object.entries(node)) {
+    if (key === 'deny') {
+      if (Array.isArray(value)) out.push(...value.map(String));
+      else if (value && typeof value === 'object') out.push(...Object.keys(value));
+    } else {
+      collectDenies(value, out);
+    }
   }
 }
 

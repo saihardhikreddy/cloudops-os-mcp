@@ -37,3 +37,39 @@ describe('HCL resource extraction', () => {
     expect(out.messages).toEqual(['S3 bucket is public (resource: aws_s3_bucket.logs)']);
   });
 });
+
+describe('real OPA runner', () => {
+  // A stand-in `opa` that applies the governance policy's S3 rule the way OPA would:
+  // it only fires when input.resource is a single object of that type.
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  let fakeOpa: string;
+
+  beforeAll(() => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fake-opa-'));
+    fakeOpa = path.join(dir, 'opa');
+    fs.writeFileSync(fakeOpa, [
+      '#!/usr/bin/env node',
+      "const fs = require('fs');",
+      "const input = JSON.parse(fs.readFileSync(process.argv[process.argv.indexOf('--input') + 1], 'utf8'));",
+      "const deny = input.resource && input.resource.type === 'aws_s3_bucket' ? ['S3 needs encryption'] : [];",
+      "console.log(JSON.stringify({ result: [{ expressions: [{ value: { cloudops: { governance: { deny } } } }] }] }));",
+    ].join('\n'));
+    fs.chmodSync(fakeOpa, 0o755);
+  });
+
+  it('evaluates each resource on its own and finds deny sets in nested packages', async () => {
+    const { runRealOpa } = await import('../src/modules/terraform/policy.engine.js');
+    const hcl = [
+      'resource "aws_s3_bucket" "logs" {', '  bucket = "a"', '}',
+      'resource "aws_instance" "web" {', '  instance_type = "t3.micro"', '}',
+      'resource "aws_s3_bucket" "assets" {', '  bucket = "b"', '}',
+    ].join('\n');
+    const out = await runRealOpa(extractResources(hcl), 'package cloudops.governance', fakeOpa);
+    expect(out.messages).toEqual([
+      'S3 needs encryption (resource: aws_s3_bucket.logs)',
+      'S3 needs encryption (resource: aws_s3_bucket.assets)',
+    ]);
+  });
+});
