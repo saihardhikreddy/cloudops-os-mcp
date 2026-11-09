@@ -73,3 +73,24 @@ describe('real OPA runner', () => {
     ]);
   });
 });
+
+describe('one-line resource blocks', () => {
+  it('do not swallow the resources after them', () => {
+    const hcl = [
+      'resource "aws_s3_bucket" "empty" {}',
+      'resource "aws_s3_bucket" "inline" { acl = "public-read" }',
+      'resource "aws_instance" "web" {',
+      '  instance_type = "m5.large"',
+      '}',
+    ].join('\n');
+    const res = extractResources(hcl);
+    expect(res.map(r => `${r.type}.${r.name}`)).toEqual(['aws_s3_bucket.empty', 'aws_s3_bucket.inline', 'aws_instance.web']);
+    expect(res[0].attrs).toEqual({});
+    expect(res[1].attrs).toEqual({ acl: 'public-read' });
+    expect(res[2].attrs).toEqual({ instance_type: 'm5.large' });
+    expect(res[2].lineStart).toBe(3);
+    expect(res[1].raw).toBe('resource "aws_s3_bucket" "inline" { acl = "public-read" }');
+    const rego = 'deny[msg] {\n  input.resource.type == "aws_instance"\n  contains(input.resource.instance_type, "large")\n  msg := "big"\n}\n';
+    expect(runRegoLite(res, rego).messages).toEqual(['big (resource: aws_instance.web)']);
+  });
+});

@@ -72,9 +72,18 @@ export function extractResources(hcl: string): ParsedResource[] {
     const match = lines[i].match(headerRegex);
     if (match) {
       const startLine = i;
-      let depth = 1;
+      // Braces after the header's `{` count too: `resource "a" "b" {}` or a one-line
+      // `{ acl = "private" }` closes on the same line. Ignoring them made the block run on
+      // and swallow the resources after it.
+      const rest = lines[i].slice((match.index ?? 0) + match[0].length);
+      let depth = 1 + (rest.match(/\{/g) || []).length - (rest.match(/\}/g) || []).length;
       let j = i + 1;
       const bodyLines: string[] = [];
+      const oneLine = depth <= 0;
+      if (oneLine) {
+        const inline = rest.slice(0, rest.lastIndexOf('}')).trim();
+        if (inline) bodyLines.push(inline);
+      }
       while (j < lines.length && depth > 0) {
         const opens = (lines[j].match(/\{/g) || []).length;
         const closes = (lines[j].match(/\}/g) || []).length;
@@ -82,7 +91,8 @@ export function extractResources(hcl: string): ParsedResource[] {
         if (depth > 0) bodyLines.push(lines[j]);
         j++;
       }
-      const body = bodyLines.join('\n');
+      // An attribute written right after the opening brace still counts.
+      const body = (!oneLine && rest.trim() ? [rest, ...bodyLines] : bodyLines).join('\n');
       const attrs: Record<string, string> = {};
       const attrRegex = /^\s*([a-zA-Z0-9_]+)\s*=\s*(.+?)\s*$/gm;
       let am: RegExpExecArray | null;
@@ -100,7 +110,7 @@ export function extractResources(hcl: string): ParsedResource[] {
         type: match[1],
         name: match[2],
         attrs,
-        raw: [lines[startLine], ...bodyLines, '}'].join('\n'),
+        raw: oneLine ? lines[startLine] : [lines[startLine], ...bodyLines, '}'].join('\n'),
         lineStart: startLine + 1,
         lineEnd: j
       });
