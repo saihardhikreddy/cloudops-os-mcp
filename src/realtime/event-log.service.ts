@@ -69,8 +69,10 @@ export class EventLogServiceImpl implements EventLogService {
       results = this.indexByAgent.get(filters.agent) || [];
     }
 
-    // Apply remaining filters
+    // Apply remaining filters. The agent has to be checked here too when the correlation
+    // index was used: asking for one agent's events in a trace used to return every agent's.
     results = results.filter(e => {
+      if (filters.agent && e.agent !== filters.agent) return false;
       if (filters.severity && e.severity !== filters.severity) return false;
       if (filters.startTime && e.timestamp < filters.startTime) return false;
       if (filters.endTime && e.timestamp > filters.endTime) return false;
@@ -83,7 +85,9 @@ export class EventLogServiceImpl implements EventLogService {
   }
 
   async getLatest(count: number): Promise<EventLogEntry[]> {
-    return this.events.slice(-count);
+    // slice(-0) is slice(0): a count of 0 used to return the whole log.
+    if (!(count > 0)) return [];
+    return this.events.slice(-Math.floor(count));
   }
 
   /**
