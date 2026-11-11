@@ -85,7 +85,8 @@ export class AgentStateService {
   startExecution(agentId: string, taskId: string): void {
     const state = this.agentStates.get(agentId);
     if (state) {
-      state.state = 'executing';
+      // A degraded agent still runs tasks, but stays flagged until its error rate recovers.
+      if (state.state !== 'degraded') state.state = 'executing';
       state.currentTaskId = taskId;
       state.activeCount++;
       state.lastHeartbeat = Date.now();
@@ -95,7 +96,34 @@ export class AgentStateService {
     if (queue) {
       const idx = queue.indexOf(taskId);
       if (idx >= 0) queue.splice(idx, 1);
+      // Without this the reported depth stayed at its old value, so the agent showed
+      // tasks waiting (and went back to 'queued' after finishing) with an empty queue.
+      if (state) state.queueDepth = queue.length;
     }
+  }
+
+  /**
+   * Recompute the error rate after a task ends, and the state that follows from it.
+   * Over 10% failures degrades the agent; it recovers once the rate is back to 5% or less.
+   * Successes count too: before, only a failure updated the rate, so a degraded agent's
+   * rate never fell, while any single success silently cleared the degraded state.
+   */
+  private refreshHealth(state: AgentExecutionState, metrics: AgentMetrics): void {
+    const total = metrics.totalProcessed + metrics.totalFailed;
+    state.errorRate = total > 0 ? metrics.totalFailed / total : 0;
+
+    if (state.errorRate > 0.1) {
+      if (state.state !== 'degraded') {
+        state.state = 'degraded';
+      }
+      state.degradationReason = `High error rate: ${(state.errorRate * 100).toFixed(1)}%`;
+      return;
+    }
+    if (state.state === 'degraded' && state.errorRate > 0.05) {
+      return; // between 5% and 10%: stay degraded until the rate is clearly back down
+    }
+    state.degradationReason = undefined;
+    state.state = state.activeCount > 0 ? 'executing' : state.queueDepth > 0 ? 'queued' : 'idle';
   }
 
   /**
@@ -121,7 +149,7 @@ export class AgentStateService {
       );
 
       state.lastHeartbeat = Date.now();
-      state.state = state.queueDepth > 0 ? 'queued' : 'idle';
+      this.refreshHealth(state, metrics);
     }
   }
 
@@ -137,20 +165,8 @@ export class AgentStateService {
       state.totalFailed++;
       metrics.totalFailed++;
 
-      const total = metrics.totalProcessed + metrics.totalFailed;
-      state.errorRate = total > 0 ? metrics.totalFailed / total : 0;
-
-      // Trigger degradation if error rate exceeds 10% (lowered from 20%)
-      if (state.errorRate > 0.1 && state.state !== 'degraded') {
-        state.state = 'degraded';
-        state.degradationReason = `High error rate: ${(state.errorRate * 100).toFixed(1)}%`;
-      } else if (state.errorRate <= 0.05 && state.state === 'degraded') {
-        // Auto-recover: error rate has dropped below 5% threshold
-        state.state = state.queueDepth > 0 ? 'queued' : 'idle';
-        state.degradationReason = undefined;
-      }
-
       state.lastHeartbeat = Date.now();
+      this.refreshHealth(state, metrics);
     }
   }
 
