@@ -8,7 +8,7 @@
 import { Injectable } from '@nitrostack/core';
 import type { MessageBroker, EventLogEntry } from './realtime.types.js';
 
-type SubscriptionHandler = (msg: EventLogEntry) => void;
+type SubscriptionHandler = (msg: EventLogEntry) => void | Promise<void>;
 
 @Injectable()
 export class MessageBrokerService implements MessageBroker {
@@ -27,26 +27,34 @@ export class MessageBrokerService implements MessageBroker {
       history.shift();
     }
 
-    // Dispatch to subscribers
-    const handlers = this.subscriptions.get(channel);
-    if (handlers) {
-      handlers.forEach(handler => {
-        try {
-          handler(message);
-        } catch (err) {
-          // Log but don't rethrow — one broken subscriber must not block others
-          console.error(
-            JSON.stringify({
-              level: 'ERROR',
-              timestamp: Date.now(),
-              message: 'MessageBroker: subscriber handler threw an error',
-              channel,
-              error: err instanceof Error ? err.message : String(err),
-            })
-          );
+    // Dispatch to a snapshot of the subscribers: a handler that subscribes another one to
+    // this channel used to have the newcomer called with the same message straight away.
+    const handlers = Array.from(this.subscriptions.get(channel) ?? []);
+    for (const handler of handlers) {
+      try {
+        const result: unknown = handler(message);
+        // An async handler's rejection escaped the try/catch as an unhandled rejection,
+        // which can stop the Node process; log it like a synchronous throw.
+        if (result && typeof (result as Promise<unknown>).catch === 'function') {
+          (result as Promise<unknown>).catch((err) => this.logHandlerError(channel, err));
         }
-      });
+      } catch (err) {
+        // Log but don't rethrow — one broken subscriber must not block others
+        this.logHandlerError(channel, err);
+      }
     }
+  }
+
+  private logHandlerError(channel: string, err: unknown): void {
+    console.error(
+      JSON.stringify({
+        level: 'ERROR',
+        timestamp: Date.now(),
+        message: 'MessageBroker: subscriber handler threw an error',
+        channel,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
   }
 
   subscribe(channel: string, handler: SubscriptionHandler): () => void {
@@ -72,8 +80,10 @@ export class MessageBrokerService implements MessageBroker {
   }
 
   getHistory(channel: string, limit: number = 100): EventLogEntry[] {
+    // slice(-0) is the whole array, so a limit of 0 used to return all 1000 messages.
+    if (!(limit > 0)) return [];
     const history = this.messageHistory.get(channel) || [];
-    return history.slice(-limit);
+    return history.slice(-Math.floor(limit));
   }
 
   async close(): Promise<void> {
