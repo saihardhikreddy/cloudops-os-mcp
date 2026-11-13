@@ -229,7 +229,10 @@ export function runRegoLite(resources: ParsedResource[], regoSource: string): { 
           if (field !== eq[2].trim()) allConditionsPass = false;
         } else if (neq) {
           const field = neq[1] === 'type' ? res.type : res.attrs[neq[1]];
-          if (field === neq[2].trim()) allConditionsPass = false;
+          // In Rego, comparing a field the resource doesn't have is undefined, so the rule
+          // body fails. Treating "missing" as "not equal" flagged every resource that leaves the
+          // attribute out, which real OPA never does.
+          if (field === undefined || field === neq[2].trim()) allConditionsPass = false;
         } else if (contains) {
           const field = contains[1] === 'type' ? res.type : (res.attrs[contains[1]] || '');
           if (!field.includes(contains[2])) allConditionsPass = false;

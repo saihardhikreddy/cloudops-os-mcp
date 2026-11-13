@@ -13,6 +13,8 @@ package cloudops.governance
 #   input.resource.<field> == "value"
 #   input.resource.<field> != "value"
 #   contains(input.resource.<field>, "substring")
+# As in OPA, a condition on a field the resource doesn't set never holds, so
+# `input.resource.acl != "private"` does not match a bucket with no acl at all.
 
 deny[msg] {
 	input.resource.type == "aws_s3_bucket"

@@ -94,3 +94,30 @@ describe('one-line resource blocks', () => {
     expect(runRegoLite(res, rego).messages).toEqual(['big (resource: aws_instance.web)']);
   });
 });
+
+describe('Rego-lite != on a missing attribute', () => {
+  const hcl = [
+    'resource "aws_s3_bucket" "unset" {',
+    '  bucket = "a"',
+    '}',
+    'resource "aws_s3_bucket" "public" {',
+    '  acl = "public-read"',
+    '}',
+    'resource "aws_s3_bucket" "private" {',
+    '  acl = "private"',
+    '}',
+  ].join('\n');
+  const rego = [
+    'deny[msg] {',
+    '  input.resource.type == "aws_s3_bucket"',
+    '  input.resource.acl != "private"',
+    '  msg := "acl must be private"',
+    '}',
+  ].join('\n');
+
+  it('matches only buckets that set a different acl, as OPA does', () => {
+    const { messages, rulesEvaluated } = runRegoLite(extractResources(hcl), rego);
+    expect(rulesEvaluated).toBe(1);
+    expect(messages).toEqual(['acl must be private (resource: aws_s3_bucket.public)']);
+  });
+});
