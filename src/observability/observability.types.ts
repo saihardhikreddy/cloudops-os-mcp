@@ -24,6 +24,7 @@ export interface StructuredLog {
     message: string;
     stack?: string;
   };
+  metadata?: Record<string, any>;
   metrics?: {
     latencyMs?: number;
     tokensUsed?: number;

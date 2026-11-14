@@ -96,6 +96,10 @@ export class StructuredLoggerService {
       metrics: options?.metrics as any
     };
 
+    if (options?.metadata && Object.keys(options.metadata).length > 0) {
+      log.metadata = options.metadata;  // was accepted and then silently dropped
+    }
+
     if (options?.error) {
       log.error = {
         name: options.error.name,
@@ -104,10 +108,10 @@ export class StructuredLoggerService {
       };
     }
 
-    // Emit to stdout as newline-delimited JSON for log aggregators
-    const consoleFn =
-      level === 'ERROR' || level === 'CRITICAL' ? console.error : console.log;
-    consoleFn(JSON.stringify(log));
+    // Emit to stderr as newline-delimited JSON for log aggregators. Never stdout: over the
+    // STDIO transport stdout carries the MCP JSON-RPC stream, and a log line written there
+    // reaches the client as a malformed protocol message.
+    console.error(JSON.stringify(log));
 
     return log;
   }

@@ -20,12 +20,13 @@ async function bootstrap() {
   const server = await McpApplicationFactory.create(AppModule);
   await server.start();
 
-  // Graceful shutdown — critical for containerised deployments
+  // Graceful shutdown — critical for containerised deployments. Status goes to stderr: over
+  // the STDIO transport stdout is the JSON-RPC stream, and the client would try to parse it.
   const shutdown = async (signal: string) => {
-    console.log(`\n⚠️  Received ${signal}, shutting down gracefully…`);
+    console.error(`\n⚠️  Received ${signal}, shutting down gracefully…`);
     try {
       await server.stop();
-      console.log('✅ Server stopped cleanly.');
+      console.error('✅ Server stopped cleanly.');
       process.exit(0);
     } catch (err) {
       console.error('❌ Error during shutdown:', err);
