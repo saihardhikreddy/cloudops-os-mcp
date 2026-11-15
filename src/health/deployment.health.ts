@@ -41,7 +41,14 @@ export class DeploymentHealthCheck {
   }
 
   /**
-   * Liveness probe: checks if the service is still running
+   * Liveness probe: checks if the service is still running.
+   *
+   * A failed liveness probe makes Kubernetes restart the pod, which here also wipes the
+   * in-memory agent state and event log. So it fails only on a catastrophic state: every agent
+   * has failed. A degraded agent or a high error rate is a readiness matter (stop routing
+   * traffic here), not a reason to restart. It used to fail on any readiness issue (one failed
+   * task out of two is enough to degrade an agent) and during the first 5 s after start, which
+   * turned a flaky downstream into a restart loop.
    */
   async checkLiveness(): Promise<{
     alive: boolean;
@@ -49,15 +56,12 @@ export class DeploymentHealthCheck {
     uptime: number;
   }> {
     const uptime = Date.now() - this.startTime;
-    const status = this.agentStateService.getDeploymentStatus();
-
-    // Service is alive if it's been running for at least 5 seconds
-    // and hasn't had a catastrophic failure
-    const alive = uptime > 5000 && status.healthy;
+    const agents = Object.values(this.agentStateService.getDeploymentStatus().agents);
+    const allFailed = agents.length > 0 && agents.every(a => a.state === 'failed');
 
     return {
-      alive,
-      reason: alive ? 'Service is healthy' : 'Service is unhealthy',
+      alive: !allFailed,
+      reason: allFailed ? 'Every agent has failed' : 'Service is running',
       uptime
     };
   }

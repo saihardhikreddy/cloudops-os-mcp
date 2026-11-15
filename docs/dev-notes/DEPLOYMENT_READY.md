@@ -329,9 +329,10 @@ const deployment = agentState.getDeploymentStatus();
 const readiness = await health.checkReadiness();
 // { ready: true, details: {...} }
 
-// Liveness probe
+// Liveness probe: fails only when every agent has failed. A degraded agent fails
+// readiness (traffic stops) but not liveness (no restart, which would wipe the state).
 const liveness = await health.checkLiveness();
-// { alive: true, uptime: 125000 }
+// { alive: true, reason: 'Service is running', uptime: 125000 }
 ```
 
 ---
