@@ -79,15 +79,19 @@ export class EventLogServiceImpl implements EventLogService {
       return true;
     });
 
-    // Apply limit
-    const limit = filters.limit || 100;
+    // Apply limit (newest first kept). As in getLatest: slice(-n) with n <= 0 is not "none".
+    // A limit of -5 used to return everything but the 5 oldest matches, and 0 meant 100.
+    if (filters.limit === undefined) return results.slice(-100);
+    const limit = Math.floor(filters.limit);
+    if (!(limit > 0)) return [];   // also a fraction under 1: floor gives 0, and slice(-0) is all
     return results.slice(-limit);
   }
 
   async getLatest(count: number): Promise<EventLogEntry[]> {
     // slice(-0) is slice(0): a count of 0 used to return the whole log.
-    if (!(count > 0)) return [];
-    return this.events.slice(-Math.floor(count));
+    const n = Math.floor(count);
+    if (!(n > 0)) return [];
+    return this.events.slice(-n);
   }
 
   /**

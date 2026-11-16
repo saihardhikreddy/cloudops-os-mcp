@@ -34,6 +34,18 @@ describe('EventLogService', () => {
     expect((await log.query({ limit: 2 })).map(e => e.timestamp)).toEqual([1003, 1004]);
   });
 
+  it('query never returns more than a positive limit, and nothing for zero or less', async () => {
+    const log = new EventLogServiceImpl();
+    for (let i = 0; i < 10; i++) await log.append(entry('t', 'A', 'info', i));
+    expect((await log.query({ limit: -5 }))).toEqual([]);      // used to return the newest 5
+    expect((await log.query({ limit: 0 }))).toEqual([]);       // used to mean 100
+    expect((await log.query({ limit: NaN }))).toEqual([]);
+    expect((await log.query({ limit: 2.7 })).map(e => e.timestamp)).toEqual([8, 9]);
+    expect((await log.query({ limit: 0.5 }))).toEqual([]);
+    expect((await log.getLatest(0.5))).toEqual([]);           // floor(0.5) = 0; slice(-0) is all
+    expect((await log.query({})).length).toBe(10);             // no limit: up to 100
+  });
+
   it('getLatest(0) returns nothing, not the whole log', async () => {
     const log = new EventLogServiceImpl();
     for (let i = 0; i < 3; i++) await log.append(entry('t', 'A', 'info', i));
