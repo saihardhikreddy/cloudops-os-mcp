@@ -1,4 +1,5 @@
 import { HealthCheck, HealthCheckInterface, HealthCheckResult } from '@nitrostack/core';
+import { getHeapStatistics } from 'v8';
 
 /**
  * System Health Check
@@ -29,18 +30,23 @@ export class SystemHealthCheck implements HealthCheckInterface {
       const rssMB = Math.round(memoryUsage.rss / 1024 / 1024);
       const externalMB = Math.round(memoryUsage.external / 1024 / 1024);
 
-      // Consider unhealthy if heap usage exceeds 90%
-      const heapPercent = (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100;
+      // Degraded when the heap is within 10 % of the most V8 will ever give it. heapTotal is
+      // only what V8 has reserved so far: it grows as needed and usually sits just above
+      // heapUsed, so heapUsed / heapTotal over 90 % is a normal, idle state. Measuring against
+      // it reported "High heap usage" on a healthy server.
+      const heapLimit = getHeapStatistics().heap_size_limit;
+      const heapPercent = (memoryUsage.heapUsed / heapLimit) * 100;
       const isHealthy = heapPercent < 90;
+      const heapLimitMB = Math.round(heapLimit / 1024 / 1024);
 
       return {
         status: isHealthy ? 'up' : 'degraded',
         message: isHealthy
           ? 'System is healthy'
-          : `High heap usage: ${Math.round(heapPercent)}%`,
+          : `High heap usage: ${Math.round(heapPercent)}% of the ${heapLimitMB}MB limit`,
         details: {
           uptime: `${uptimeSeconds}s`,
-          heap: `${heapUsedMB}MB / ${heapTotalMB}MB (${Math.round(heapPercent)}%)`,
+          heap: `${heapUsedMB}MB used, ${heapTotalMB}MB reserved, limit ${heapLimitMB}MB (${Math.round(heapPercent)}% of the limit)`,
           rss: `${rssMB}MB`,
           external: `${externalMB}MB`,
           pid: process.pid,
