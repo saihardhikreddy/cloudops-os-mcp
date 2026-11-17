@@ -74,7 +74,10 @@ export class AgentStateService {
       const state = this.agentStates.get(agentId);
       if (state) {
         state.queueDepth = queue.length;
-        state.state = queue.length > 0 ? 'queued' : 'idle';
+        // Only an idle agent becomes 'queued'. This used to overwrite every state, so a
+        // task queued behind a running one showed the agent as not executing, and a degraded
+        // agent dropped its 'degraded' flag (and its readiness issue) whenever work arrived.
+        if (state.state === 'idle') state.state = 'queued';
       }
     }
   }

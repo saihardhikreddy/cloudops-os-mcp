@@ -23,6 +23,22 @@ describe('AgentStateService', () => {
     expect(s.getAgentState('Release')!.state).toBe('idle');
   });
 
+  it('queuing a task keeps an executing or degraded agent in that state', () => {
+    const s = service();
+    s.enqueueTask('Release', 't1');
+    s.startExecution('Release', 't1');
+    s.enqueueTask('Release', 't2');
+    expect(s.getAgentState('Release')!.state).toBe('executing');
+    expect(s.getAgentState('Release')!.queueDepth).toBe(1);
+
+    s.startExecution('PolicyGovernance', 'f');
+    s.failExecution('PolicyGovernance', 'f', 'boom');
+    expect(s.getAgentState('PolicyGovernance')!.state).toBe('degraded');
+    s.enqueueTask('PolicyGovernance', 'next');
+    expect(s.getAgentState('PolicyGovernance')!.state).toBe('degraded');
+    expect(s.getDeploymentStatus().issues.some(i => i.includes('PolicyGovernance degraded'))).toBe(true);
+  });
+
   it('stays queued while other tasks wait', () => {
     const s = service();
     s.enqueueTask('Release', 't1');
