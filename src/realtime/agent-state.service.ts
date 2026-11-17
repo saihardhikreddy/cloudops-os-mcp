@@ -233,6 +233,21 @@ export class AgentStateService {
       state.activeCount = 0;
       state.queueDepth = 0;
       state.degradationReason = undefined;
+      // The counts behind the error rate start over too. They used to survive the reset, so
+      // the deployment status still reported the old error rate and the next finished task
+      // degraded the agent again: the reset the troubleshooting guide suggests did nothing.
+      state.totalProcessed = 0;
+      state.totalFailed = 0;
+      state.errorRate = 0;
+      state.averageLatencyMs = 0;
+      state.lastHeartbeat = Date.now();
+    }
+    const metrics = this.agentMetrics.get(agentId);
+    if (metrics) {
+      metrics.totalProcessed = 0;
+      metrics.totalFailed = 0;
+      metrics.latencies = [];
+      metrics.lastHeartbeat = Date.now();
     }
 
     const queue = this.taskQueues.get(agentId);

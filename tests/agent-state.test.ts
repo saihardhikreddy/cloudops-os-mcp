@@ -39,6 +39,20 @@ describe('AgentStateService', () => {
     expect(s.getDeploymentStatus().issues.some(i => i.includes('PolicyGovernance degraded'))).toBe(true);
   });
 
+  it('a reset clears the error rate, so the agent stays recovered', () => {
+    const s = service();
+    s.startExecution('Release', 'f');
+    s.failExecution('Release', 'f', 'boom');
+    expect(s.getAgentState('Release')!.state).toBe('degraded');
+    s.resetAgent('Release');
+    expect(s.getAgentState('Release')!.errorRate).toBe(0);
+    expect(s.getDeploymentStatus().ready).toBe(true);
+    s.startExecution('Release', 'ok');
+    s.completeExecution('Release', 'ok', 30);
+    expect(s.getAgentState('Release')!.state).toBe('idle');  // not degraded again by the old failure
+    expect(s.getAgentState('Release')!.totalProcessed).toBe(1);
+  });
+
   it('stays queued while other tasks wait', () => {
     const s = service();
     s.enqueueTask('Release', 't1');
