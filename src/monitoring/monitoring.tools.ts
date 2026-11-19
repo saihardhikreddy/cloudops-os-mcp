@@ -30,6 +30,12 @@ export class MonitoringTools {
     ctx.logger.info('Fetching agent status', { agentId: input.agent_id });
 
     const allStates = this.agentStateService.getAllAgentStates();
+    // An unknown id used to crash with "Cannot read properties of undefined (reading 'state')".
+    if (input.agent_id && !(input.agent_id in allStates)) {
+      throw new Error(
+        `Unknown agent "${input.agent_id}". Known agents: ${Object.keys(allStates).join(', ')}`
+      );
+    }
     const states = input.agent_id
       ? { [input.agent_id]: allStates[input.agent_id] }
       : allStates;
