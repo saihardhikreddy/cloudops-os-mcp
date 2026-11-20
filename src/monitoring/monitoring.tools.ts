@@ -106,7 +106,10 @@ export class MonitoringTools {
       correlation_id: z.string().optional().describe('Filter by correlation ID'),
       agent: z.string().optional().describe('Filter by agent name'),
       severity: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL']).optional().describe('Filter by severity level'),
-      limit: z.number().optional().default(50).describe('Maximum number of events to return')
+      // A whole number from 1 to 1000. 0 used to be turned into 50 below ("|| 50"), a negative
+      // number returned nothing, and 2.5 was cut to 2; the event log keeps up to 10000 events.
+      limit: z.number().int().min(1).max(1000).optional().default(50)
+        .describe('Maximum number of events to return (1-1000, newest kept)')
     })
   })
   @Widget('event-log-viewer')
@@ -129,7 +132,7 @@ export class MonitoringTools {
       correlationId: input.correlation_id,
       agent: input.agent,
       severity: input.severity,
-      limit: input.limit || 50
+      limit: input.limit ?? 50
     });
 
     return {
