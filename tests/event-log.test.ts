@@ -34,6 +34,13 @@ describe('EventLogService', () => {
     expect((await log.query({ limit: 2 })).map(e => e.timestamp)).toEqual([1003, 1004]);
   });
 
+  it('treats a time bound of 0 (the epoch) as a real bound', async () => {
+    const log = new EventLogServiceImpl();
+    for (const ts of [-2, -1, 0, 1, 2]) await log.append(entry('t', 'A', 'info', ts));
+    expect((await log.query({ startTime: 0 })).map(e => e.timestamp)).toEqual([0, 1, 2]);
+    expect((await log.query({ endTime: 0 })).map(e => e.timestamp)).toEqual([-2, -1, 0]);
+  });
+
   it('query never returns more than a positive limit, and nothing for zero or less', async () => {
     const log = new EventLogServiceImpl();
     for (let i = 0; i < 10; i++) await log.append(entry('t', 'A', 'info', i));

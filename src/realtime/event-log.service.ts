@@ -74,8 +74,10 @@ export class EventLogServiceImpl implements EventLogService {
     results = results.filter(e => {
       if (filters.agent && e.agent !== filters.agent) return false;
       if (filters.severity && e.severity !== filters.severity) return false;
-      if (filters.startTime && e.timestamp < filters.startTime) return false;
-      if (filters.endTime && e.timestamp > filters.endTime) return false;
+      // Compare against undefined, not falsiness: a startTime or endTime of 0 (the epoch) is a
+      // real bound, but "filters.startTime && ..." treated it as "no bound" and ignored it.
+      if (filters.startTime !== undefined && e.timestamp < filters.startTime) return false;
+      if (filters.endTime !== undefined && e.timestamp > filters.endTime) return false;
       return true;
     });
 
