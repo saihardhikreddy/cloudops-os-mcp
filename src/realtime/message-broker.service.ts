@@ -63,8 +63,13 @@ export class MessageBrokerService implements MessageBroker {
     }
     this.subscriptions.get(channel)!.add(handler);
 
-    // Return unsubscribe function
+    // Return unsubscribe function. It works once: calling it a second time (say from a cleanup
+    // that runs twice) used to remove the same handler again, even after it had been
+    // subscribed afresh, and the new subscription silently stopped receiving messages.
+    let active = true;
     return () => {
+      if (!active) return;
+      active = false;
       const handlers = this.subscriptions.get(channel);
       if (handlers) {
         handlers.delete(handler);

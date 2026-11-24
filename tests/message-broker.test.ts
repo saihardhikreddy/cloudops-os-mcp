@@ -56,4 +56,17 @@ describe('MessageBrokerService', () => {
     expect(got).toEqual(['1']);
     expect(b.getChannels()).toEqual([]);
   });
+
+  it('a stale unsubscribe does not remove a later subscription of the same handler', async () => {
+    const b = new MessageBrokerService();
+    const got: string[] = [];
+    const handler = (m: EventLogEntry) => { got.push(m.id); };
+    const off = b.subscribe('ch', handler);
+    off();
+    b.subscribe('ch', handler);
+    off();                                   // a cleanup that runs twice
+    await b.publish('ch', msg(1));
+    expect(got).toEqual(['1']);
+    expect(b.getChannels()).toEqual(['ch']);
+  });
 });
